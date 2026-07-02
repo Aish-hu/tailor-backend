@@ -17,6 +17,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   const token = header.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ error: "Missing or invalid Authorization header" });
+  }
   try {
     req.user = verifyToken(token);
     next();

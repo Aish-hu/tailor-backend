@@ -45,7 +45,7 @@ export async function upsertMyMeasurements(req: Request, res: Response) {
 
 // Admin/seller view of a specific customer's measurements (e.g. support lookup).
 export async function getCustomerMeasurements(req: Request, res: Response) {
-  const { userId } = req.params;
+  const { userId } = req.params as { userId: string };
   const profile = await prisma.measurementProfile.findUnique({ where: { userId } });
   if (!profile) {
     return res.status(404).json({ error: "This customer hasn't set up measurements yet" });

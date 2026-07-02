@@ -102,7 +102,7 @@ export async function getMyOrders(req: Request, res: Response) {
 }
 
 export async function getOrder(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const order = await prisma.order.findFirst({
     where: { id, userId: req.user!.userId },
     include: {
@@ -145,7 +145,7 @@ const updateStatusSchema = z.object({
 });
 
 export async function updateOrderStatus(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const parsed = updateStatusSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });

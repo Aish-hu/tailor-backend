@@ -59,7 +59,7 @@ const updateCartSchema = z.object({
 });
 
 export async function updateCartItem(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const parsed = updateCartSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -79,7 +79,7 @@ export async function updateCartItem(req: Request, res: Response) {
 }
 
 export async function removeCartItem(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const existing = await prisma.cartItem.findFirst({
     where: { id, userId: req.user!.userId },
   });

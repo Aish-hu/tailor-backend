@@ -38,7 +38,7 @@ export async function createAddress(req: Request, res: Response) {
 }
 
 export async function deleteAddress(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const existing = await prisma.address.findFirst({
     where: { id, userId: req.user!.userId },
   });

@@ -18,7 +18,7 @@ export async function listProducts(req: Request, res: Response) {
 }
 
 export async function getProduct(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const product = await prisma.product.findUnique({
     where: { id },
     include: { customizationGroups: { include: { options: true } } },
@@ -83,7 +83,7 @@ const updateProductSchema = z.object({
 });
 
 export async function updateProduct(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   const parsed = updateProductSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -94,7 +94,7 @@ export async function updateProduct(req: Request, res: Response) {
 }
 
 export async function deleteProduct(req: Request, res: Response) {
-  const { id } = req.params;
+  const { id } = req.params as { id: string };
   // Soft delete — keeps history intact for past orders referencing this product.
   const product = await prisma.product.update({ where: { id }, data: { isActive: false } });
   return res.json({ product });
