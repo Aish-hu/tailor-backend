@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import prisma from "../config/prisma";
-import razorpay from "../config/razorpay";
+import { getRazorpay } from "../config/razorpay";
 
 const checkoutSchema = z.object({
   addressId: z.string().uuid(),
@@ -66,11 +66,23 @@ export async function checkout(req: Request, res: Response) {
   });
 
   // Razorpay expects amount in the smallest currency unit (paise for INR).
-  const razorpayOrder = await razorpay.orders.create({
-    amount: Math.round(totalAmount * 100),
-    currency: "INR",
-    receipt: order.id,
-  });
+  const razorpayClient = getRazorpay();
+  
+  let razorpayOrder: any;
+  if (razorpayClient) {
+    razorpayOrder = await razorpayClient.orders.create({
+      amount: Math.round(totalAmount * 100),
+      currency: "INR",
+      receipt: order.id,
+    });
+  } else {
+    // Developer simulator mode: create a mock order
+    razorpayOrder = {
+      id: `order_${order.id.slice(0, 12)}`,
+      amount: Math.round(totalAmount * 100),
+      currency: "INR",
+    };
+  }
 
   await prisma.payment.create({
     data: {

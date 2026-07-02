@@ -1,8 +1,26 @@
 import Razorpay from "razorpay";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID as string,
-  key_secret: process.env.RAZORPAY_KEY_SECRET as string,
-});
+let razorpay: Razorpay | null = null;
 
-export default razorpay;
+export function getRazorpay(): Razorpay | null {
+  // Only initialize if both keys are provided
+  if (!razorpay) {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    // Return null if keys are missing (fallback to developer mode)
+    if (!keyId || !keySecret) {
+      console.warn("⚠️  Razorpay keys not configured. Using developer simulator mode.");
+      return null;
+    }
+
+    razorpay = new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret,
+    });
+  }
+
+  return razorpay;
+}
+
+export default getRazorpay;
