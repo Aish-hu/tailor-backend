@@ -1,0 +1,206 @@
+// Custom Tailoring Shopping Platform — Database Schema
+// Single brand/seller. Customers enter measurements once, reuse across orders.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN // you, the seller
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  IN_PRODUCTION
+  READY_FOR_DELIVERY
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String
+  role          Role     @default(CUSTOMER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  measurementProfile MeasurementProfile?
+  addresses          Address[]
+  cart               CartItem[]
+  orders             Order[]
+}
+
+// One live profile per customer. Editable any time.
+// Orders snapshot this at checkout — see OrderItem.measurementsSnapshot.
+model MeasurementProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  unit      String   @default("cm") // "cm" or "in"
+
+  chest     Float?
+  waist     Float?
+  hip       Float?
+  shoulder  Float?
+  sleeveLength Float?
+  inseam    Float?
+  outseam   Float?
+  neck      Float?
+  topLength Float?  // shirt/kurta length
+  thigh     Float?
+  bicep     Float?
+  notes     String? // free text, e.g. "prefers loose fit"
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Address {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label     String   // "Home", "Work"
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String   @default("India")
+  isDefault Boolean  @default(false)
+
+  orders    Order[]
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  basePrice   Float
+  category    String   // e.g. "Shirt", "Kurta", "Trousers"
+  images      String[] // Cloudinary URLs
+  isActive    Boolean  @default(true)
+
+  customizationGroups CustomizationGroup[]
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// e.g. group "Fabric" -> options ["Cotton", "Linen"], group "Color" -> options ["White", "Navy"]
+model CustomizationGroup {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String   // "Fabric", "Color", "Collar Style"
+  required  Boolean  @default(true)
+
+  options   CustomizationOption[]
+}
+
+model CustomizationOption {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     CustomizationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  label     String   // "Linen", "Navy Blue"
+  priceDelta Float   @default(0) // added to basePrice if selected
+
+  cartItemSelections  CartItemSelection[]
+  orderItemSelections OrderItemSelection[]
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+
+  selections CartItemSelection[]
+  createdAt  DateTime @default(now())
+}
+
+model CartItemSelection {
+  id          String   @id @default(uuid())
+  cartItemId  String
+  cartItem    CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  optionId    String
+  option      CustomizationOption @relation(fields: [optionId], references: [id])
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  addressId     String
+  address       Address     @relation(fields: [addressId], references: [id])
+
+  status        OrderStatus @default(PENDING_PAYMENT)
+  totalAmount   Float
+
+  items         OrderItem[]
+  payment       Payment?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// Snapshots both the product price AND the customer's measurements
+// at the moment of order — so later profile edits never affect past orders.
+model OrderItem {
+  id           String  @id @default(uuid())
+  orderId      String
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  quantity     Int     @default(1)
+  unitPrice    Float   // basePrice + selected option deltas, at order time
+
+  // Frozen copy of the customer's measurements at checkout time
+  measurementsSnapshot Json
+
+  selections   OrderItemSelection[]
+}
+
+model OrderItemSelection {
+  id          String    @id @default(uuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  optionId    String
+  option      CustomizationOption @relation(fields: [optionId], references: [id])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  orderId         String        @unique
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  razorpayOrderId String        @unique
+  razorpayPaymentId String?
+  amount          Float
+  status          PaymentStatus @default(CREATED)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
